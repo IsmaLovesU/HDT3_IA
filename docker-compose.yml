@@ -1,0 +1,23 @@
+# PostgreSQL 16 con la extensión pgvector.
+# Funciona igual con Docker (docker compose up -d) o Podman (podman compose up -d).
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: faq-pgvector
+    environment:
+      POSTGRES_USER: faq
+      POSTGRES_PASSWORD: faq
+      POSTGRES_DB: faq
+    ports:
+      - "5432:5432"
+    volumes:
+      - faq_pgdata:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faq -d faq"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  faq_pgdata:

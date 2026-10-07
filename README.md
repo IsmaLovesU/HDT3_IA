@@ -1,67 +1,109 @@
-# Agente de FAQs - Parachute S.A.
+# Agente de FAQs - Parachute S.A. (HDT4: RAG con pgvector)
 
 Agente de línea de comandos que responde preguntas sobre el evento de
 paracaidismo de Parachute S.A. (Guatemala, 29 de septiembre de 2026).
 
-## Arquitectura (RAG simple)
+Esta versión reemplaza la inyección completa del FAQ por **RAG**: las 120 fichas
+del corpus se vectorizan, se guardan en PostgreSQL con pgvector y el agente
+consulta esa base mediante la herramienta `buscar_faq`.
 
-Esta es la versión más simple posible de RAG: se lee el archivo `faq.txt`
-completo y se inyecta como texto dentro del system prompt del modelo. El
-modelo responde únicamente con base en ese contenido.
+## Arquitectura
 
-No se usan embeddings, vector databases, chunking ni búsqueda semántica,
-porque el documento de FAQs es pequeño y cabe completo en el contexto del
-modelo. Para un caso así, agregar retrieval semántico sería complejidad
-innecesaria.
-
-Cada pregunta se envía de forma independiente (sin memoria de conversación),
-por lo que el historial de preguntas anteriores no afecta las respuestas.
-
-## Requisitos previos
-
-- Python 3.10 o superior.
-- Una cuenta en [NVIDIA Build](https://build.nvidia.com) para obtener una API key.
-
-## Instalación
-
-```bash
-python -m venv venv
-source venv/bin/activate      # En Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env          # y pegar la API key adentro
-python main.py
+```
+data/Corpus_FAQs_...txt --> cargar_embeddings.py --> PostgreSQL + pgvector (faq_chunks)
+                                                          ^
+Usuario --> agente_faq.py --(function call buscar_faq)----+
+              ^                                           |
+              +------ resultados (top 5 fichas) ----------+
 ```
 
-## Obtener la API key
+| Archivo | Responsabilidad |
+|---|---|
+| `faq_corpus.py` | Parsea el TXT del corpus en registros (ID, categoría, pregunta, respuesta, metadata). |
+| `embeddings.py` | Genera vectores de 384 dimensiones con `sentence-transformers/all-MiniLM-L6-v2`. |
+| `base_datos.py` | Conexión a PostgreSQL y búsqueda por similitud coseno. |
+| `cargar_embeddings.py` | **Script 1 (carga):** llena la tabla `faq_chunks`. Es idempotente. |
+| `agente_faq.py` | **Script 2 (agente):** chat en terminal con la herramienta `buscar_faq`. |
+| `infra/init.sql` | Crea la extensión `vector`, la tabla y el índice HNSW. |
+| `docker-compose.yml` | Levanta PostgreSQL 16 + pgvector. |
 
-1. Entra a [build.nvidia.com](https://build.nvidia.com) y crea una cuenta o inicia sesión.
-2. Busca el modelo `meta/llama-3.2-11b-vision-instruct` (o cualquier modelo disponible
-   para tu cuenta; algunos modelos requieren acceso habilitado por NVIDIA).
-3. Genera una API key desde tu perfil.
-4. Pega la key en el archivo `.env`:
-   ```
-   NVIDIA_API_KEY=nvapi-...
-   ```
+## 1. Infraestructura (base de datos)
 
-## Ejemplos de uso
+Requisitos: Docker Desktop o Podman. En Windows, Docker Desktop necesita WSL2
+(`wsl --install`, con reinicio).
+
+```bash
+# Docker
+docker compose up -d
+
+# Podman
+podman compose up -d
+```
+
+El contenedor expone PostgreSQL en `localhost:5432` (usuario `faq`, contraseña `faq`,
+base `faq`). El script `infra/init.sql` se ejecuta solo la primera vez que se crea el
+volumen. Para reiniciar la base desde cero:
+
+```bash
+docker compose down -v && docker compose up -d
+```
+
+Verificar que pgvector está disponible:
+
+```bash
+docker exec -it faq-pgvector psql -U faq -d faq -c "\dx"
+```
+
+## 2. Entorno de Python
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # En Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env             # y pegar NVIDIA_API_KEY
+```
+
+La primera ejecución descarga el modelo de embeddings (~90 MB).
+
+## 3. Cargar el corpus
+
+```bash
+python cargar_embeddings.py
+```
+
+Salida esperada: `Registros leídos: 120` y `Filas en faq_chunks: 120`.
+
+## 4. Ejecutar el agente
+
+```bash
+python agente_faq.py
+```
+
+Escribe tu pregunta. Para salir, escribe `Bye` o presiona `Ctrl-C`.
 
 ```
 Tú: ¿Cuál es el límite de peso para el salto?
-Agente: El límite de peso máximo es de 100 kg (220 lbs)...
-
-Tú: ¿Qué métodos de pago aceptan?
-Agente: Aceptamos transferencias bancarias, tarjetas de crédito/débito...
-
-Tú: ¿Qué ropa debo llevar?
-Agente: Recomendamos ropa cómoda y deportiva...
-
-Tú: ¿Hay descuento para estudiantes?
-Agente: Lo siento, no tengo esa información en las preguntas frecuentes del evento...
+Agente: El límite de peso máximo es de 100 kg. Si el peso está entre 90 kg y 100 kg, ...
 ```
 
-Para salir, escribe `Bye` o presiona `Ctrl-C`.
+El modelo de chat se configura en `MODELO` dentro de `agente_faq.py`
+(por defecto `meta/llama-3.1-70b-instruct` en NVIDIA Build, que soporta function calling).
+
+## Pruebas
+
+```bash
+pytest
+```
+
+Las pruebas cubren el parser del corpus; no requieren base de datos ni API key.
+
+## Notas sobre el corpus
+
+Parte del corpus contiene fichas con respuestas genéricas (plantilla) y respuestas
+repetidas en preguntas que no corresponden. El agente solo puede responder con lo que
+aparece en el documento, así que en esos casos indicará que no tiene el detalle y
+sugerirá contactar a soporte@parachutesa.gt.
 
 ## Seguridad
 
-El archivo `.env` está en `.gitignore` y nunca se sube al repositorio. Usa
-`.env.example` como plantilla para configurar tu propia API key localmente.
+`.env` está en `.gitignore`. Usa `.env.example` como plantilla.
