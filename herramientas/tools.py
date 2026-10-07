@@ -3,6 +3,10 @@
 Cada función envuelve una integración de `integraciones.py`. Los errores de validación
 (fecha fuera de rango, formato inválido) se devuelven como JSON para que el agente
 pueda corregir al usuario en vez de romper la ejecución.
+
+`REGISTRO_LLAMADAS` guarda cada invocación real de una herramienta, incluso cuando la
+llama un agente anidado (as_tool). Lo usan las evals de HDT6 para verificar el orden
+y los argumentos de las herramientas.
 """
 
 import json
@@ -10,6 +14,8 @@ import json
 from agents import function_tool
 
 from herramientas import integraciones
+
+REGISTRO_LLAMADAS: list[dict] = []
 
 
 def _resultado(funcion, **kwargs) -> str:
@@ -19,9 +25,14 @@ def _resultado(funcion, **kwargs) -> str:
         return json.dumps({"error": str(error)}, ensure_ascii=False)
 
 
+def _registrar(nombre: str, **argumentos) -> None:
+    REGISTRO_LLAMADAS.append({"name": nombre, "arguments": argumentos})
+
+
 @function_tool
 def consultar_faq(consulta: str) -> str:
     """Busca en la base de FAQs del evento. Úsala para cualquier pregunta informativa."""
+    _registrar("consultar_faq", consulta=consulta)
     return _resultado(integraciones.consultar_faq, consulta=consulta)
 
 
@@ -29,6 +40,7 @@ def consultar_faq(consulta: str) -> str:
 def consultar_clima(fecha: str) -> str:
     """Consulta el pronóstico de Open-Meteo para el lugar de aterrizaje en una fecha (AAAA-MM-DD).
     Devuelve el nivel del día (ideal, marginal o prohibido) y los motivos. Sólo hay pronóstico hasta 16 días."""
+    _registrar("consultar_clima", fecha=fecha)
     return _resultado(integraciones.consultar_clima, fecha_iso=fecha)
 
 
@@ -43,6 +55,14 @@ def agendar_cita(
     """Agenda una cita para saltar. Revisa el clima antes: un día prohibido nunca se agenda.
     Un día marginal sólo se agenda si confirmar_marginal es true (el usuario lo aceptó).
     fecha es AAAA-MM-DD y hora es HH:MM en 24 horas."""
+    _registrar(
+        "agendar_cita",
+        nombre=nombre,
+        fecha=fecha,
+        hora=hora,
+        servicio=servicio,
+        confirmar_marginal=confirmar_marginal,
+    )
     return _resultado(
         integraciones.agendar_cita,
         nombre=nombre,

@@ -1,0 +1,13 @@
+{
+  "name": "agente-faq-evals",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Evals con promptfoo para el agente de citas y FAQ (HDT6)",
+  "scripts": {
+    "eval": "promptfoo eval -c evals/promptfooconfig.yaml --no-cache -o evals/reports/report.html -o evals/reports/results.json",
+    "view": "promptfoo view"
+  },
+  "devDependencies": {
+    "promptfoo": "0.118.17"
+  }
+}

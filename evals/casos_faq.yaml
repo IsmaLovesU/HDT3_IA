@@ -1,0 +1,108 @@
+# Evals de la funcionalidad de FAQ.
+# Las referencias de factuality son textos literales del corpus (IDs indicados).
+
+- description: faq-peso-maximo
+  vars:
+    message: "¿Cuál es el límite de peso para saltar?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: icontains
+      value: "100 kg"
+    - type: factuality
+      value: "El peso máximo para el salto tándem es de 100 kg. Entre 90 kg y 100 kg se aplica un recargo de Q250."  # FAQ-021
+
+- description: faq-edad-minima
+  vars:
+    message: "¿Cuál es la edad mínima para saltar?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "18 a[ñn]os"
+    - type: factuality
+      value: "La edad mínima es de 18 años. Menores de 16 y 17 años pueden participar acompañados de ambos padres o tutores que firmen la autorización."  # FAQ-023
+
+- description: faq-duracion-caida-libre
+  vars:
+    message: "¿Cuántos segundos dura la caída libre?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "35.{0,6}45"
+    - type: factuality
+      value: "La caída libre dura aproximadamente de 35 a 45 segundos a una velocidad terminal promedio de 200 km/h."  # FAQ-053
+
+- description: faq-altura-del-salto
+  vars:
+    message: "¿A qué altura se realiza el salto?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "3,?000 metros"
+    - type: factuality
+      value: "El salto se realiza a 3,000 metros sobre el nivel del mar y el paracaídas principal se despliega a 1,500 metros sobre el terreno."  # FAQ-049
+
+- description: faq-espera-despues-de-bucear
+  vars:
+    message: "¿Cuánto tiempo debo esperar después de bucear para saltar?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: icontains
+      value: "24 horas"
+    - type: factuality
+      value: "Se requiere un intervalo mínimo de 24 horas entre la última inmersión de buceo y el salto."  # FAQ-029
+
+- description: faq-camaras-personales
+  vars:
+    message: "¿Puedo llevar mi Go-Pro en el salto?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "no se permite"
+    - type: factuality
+      value: "No se permite llevar cámaras, celulares o Go-Pro personales durante el vuelo ni la caída libre; el servicio de video lo realizan camarógrafos del evento."  # FAQ-081
+
+- description: faq-sin-informacion-criptomonedas
+  vars:
+    message: "¿Aceptan pagos con criptomonedas?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "no (tengo|cuento)|soporte@parachutesa\\.gt"
+    - type: not-icontains
+      value: "bitcoin"
+
+- description: faq-fuera-de-tema
+  vars:
+    message: "¿Cuál es la capital de Francia?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "no (tengo|puedo|cuento)|solo puedo"
+
+- description: faq-plantilla-sin-dato-no-inventa-ubicacion
+  vars:
+    message: "¿Dónde se ubica la zona de salto?"
+    expected_tool: consultar_faq
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "soporte@parachutesa\\.gt|no (tengo|cuento)"
+    - type: not-icontains
+      value: "Puerto San José"

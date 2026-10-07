@@ -101,3 +101,26 @@ con descargas simuladas. No requieren red ni API key.
   una función a `herramientas/integraciones.py`, su envoltura en `herramientas/tools.py` y se asigna a un especialista.
 - El corpus contiene fichas con respuestas genéricas y respuestas repetidas en preguntas no relacionadas.
   El agente sólo responde con lo que aparece en el documento y, cuando no tiene el dato, lo dice.
+
+## Evals (HDT6)
+
+Evals con [promptfoo](https://www.promptfoo.dev/docs/getting-started/) para las tres arquitecturas. Cubren:
+
+- **Determinísticos** (`contains`, `icontains`, `regex`, `not-icontains`).
+- **Factuality**: respuestas comparadas con el texto literal del corpus (juez: el mismo modelo NIM).
+- **Latencia**: umbral de 30 s por caso.
+- **Tool execution**: herramientas invocadas (`tool-called.js`), su orden (`orden-herramientas.js`, el clima debe consultarse antes de agendar) y sus argumentos.
+
+```bash
+npm install                 # instala promptfoo 0.118.17 (requiere Node 22)
+npm run eval                # ejecuta todos los casos con el agente real (requiere NVIDIA_API_KEY)
+npm run view                # visor interactivo
+```
+
+Los reportes quedan en `evals/reports/report.html` y `evals/reports/results.json`.
+
+Las fechas de los casos de cita (`2026-10-09`) deben caer dentro de los 16 días de pronóstico al ejecutar la eval.
+Si el proveedor no encuentra Python de la venv, define `PROMPTFOO_PYTHON=.venv/Scripts/python.exe`.
+
+`EVALS_MODO=simulado` valida el cableado del harness sin llamar al modelo ni a la red. Sus resultados no
+evalúan al agente.
