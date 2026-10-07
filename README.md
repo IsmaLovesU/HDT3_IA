@@ -1,109 +1,103 @@
-# Agente de FAQs - Parachute S.A. (HDT4: RAG con pgvector)
+# Agente de citas y FAQs - Parachute S.A. (HDT5: sistemas multiagente)
 
-Agente de línea de comandos que responde preguntas sobre el evento de
-paracaidismo de Parachute S.A. (Guatemala, 29 de septiembre de 2026).
+Agente de terminal para el evento de paracaidismo de Parachute S.A. (Guatemala, 29 de septiembre de 2026).
+Responde preguntas del corpus de FAQs (RAG con pgvector, HDT4) y agenda citas revisando el pronóstico
+de Open-Meteo antes de guardar cada cita.
 
-Esta versión reemplaza la inyección completa del FAQ por **RAG**: las 120 fichas
-del corpus se vectorizan, se guardan en PostgreSQL con pgvector y el agente
-consulta esa base mediante la herramienta `buscar_faq`.
+Este repositorio contiene **tres implementaciones del mismo problema**, cada una con una arquitectura de
+orquestación distinta:
 
-## Arquitectura
+| Programa | Arquitectura | Conexión entre agentes |
+|---|---|---|
+| `python centralizada.py` | Centralizada | Un supervisor llama a los especialistas con `as_tool()` |
+| `python jerarquica.py` | Jerárquica | Un supervisor general delega en dos gerentes, que a su vez usan `as_tool()` |
+| `python descentralizada.py` | Descentralizada | Los agentes se transfieren la conversación con `handoff` |
+
+Los diagramas están en [`docs/diagramas.md`](docs/diagramas.md) y las respuestas a las preguntas del
+enunciado en [`docs/respuestas.pdf`](docs/respuestas.pdf) (fuente: [`docs/respuestas.md`](docs/respuestas.md)).
+
+## Estructura
 
 ```
-data/Corpus_FAQs_...txt --> cargar_embeddings.py --> PostgreSQL + pgvector (faq_chunks)
-                                                          ^
-Usuario --> agente_faq.py --(function call buscar_faq)----+
-              ^                                           |
-              +------ resultados (top 5 fichas) ----------+
+centralizada.py / jerarquica.py / descentralizada.py   programas de cada arquitectura
+agentes_comunes.py      especialistas (FAQ, clima, citas), cliente del modelo y bucle de terminal
+herramientas/
+  tools.py              herramientas del SDK (function_tool) que usan las tres arquitecturas
+  integraciones.py      FAQ, Open-Meteo y calendario; sin dependencia de las arquitecturas
+  reglas_clima.py       criterio de seguridad para saltar (función pura)
+base_datos.py, embeddings.py, faq_corpus.py, cargar_embeddings.py   RAG de HDT4
+tests/                  pruebas sin red ni modelo
 ```
 
-| Archivo | Responsabilidad |
-|---|---|
-| `faq_corpus.py` | Parsea el TXT del corpus en registros (ID, categoría, pregunta, respuesta, metadata). |
-| `embeddings.py` | Genera vectores de 384 dimensiones con `sentence-transformers/all-MiniLM-L6-v2`. |
-| `base_datos.py` | Conexión a PostgreSQL y búsqueda por similitud coseno. |
-| `cargar_embeddings.py` | **Script 1 (carga):** llena la tabla `faq_chunks`. Es idempotente. |
-| `agente_faq.py` | **Script 2 (agente):** chat en terminal con la herramienta `buscar_faq`. |
-| `infra/init.sql` | Crea la extensión `vector`, la tabla y el índice HNSW. |
-| `docker-compose.yml` | Levanta PostgreSQL 16 + pgvector. |
+## Requisitos
 
-## 1. Infraestructura (base de datos)
+- Python 3.12 (la versión usada para desarrollar).
+- Una API key de [NVIDIA Build](https://build.nvidia.com) en `NVIDIA_API_KEY`.
+- Para la búsqueda de FAQs: PostgreSQL con pgvector, levantado con Docker o Podman y cargado con `cargar_embeddings.py` (ver instrucciones de HDT4 abajo).
 
-Requisitos: Docker Desktop o Podman. En Windows, Docker Desktop necesita WSL2
-(`wsl --install`, con reinicio).
-
-```bash
-# Docker
-docker compose up -d
-
-# Podman
-podman compose up -d
-```
-
-El contenedor expone PostgreSQL en `localhost:5432` (usuario `faq`, contraseña `faq`,
-base `faq`). El script `infra/init.sql` se ejecuta solo la primera vez que se crea el
-volumen. Para reiniciar la base desde cero:
-
-```bash
-docker compose down -v && docker compose up -d
-```
-
-Verificar que pgvector está disponible:
-
-```bash
-docker exec -it faq-pgvector psql -U faq -d faq -c "\dx"
-```
-
-## 2. Entorno de Python
+## Instalación
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+pip install openai-agents
 cp .env.example .env             # y pegar NVIDIA_API_KEY
 ```
 
-La primera ejecución descarga el modelo de embeddings (~90 MB).
-
-## 3. Cargar el corpus
+## Base de datos de FAQs (HDT4)
 
 ```bash
-python cargar_embeddings.py
+docker compose up -d             # o: podman compose up -d
+python cargar_embeddings.py      # carga las 120 fichas del corpus
 ```
 
-Salida esperada: `Registros leídos: 120` y `Filas en faq_chunks: 120`.
+En Windows, Docker Desktop requiere WSL2 (`wsl --install`, con reinicio). Ver el detalle en la sección de
+infraestructura de HDT4 en el historial de este repositorio.
 
-## 4. Ejecutar el agente
+## Ejecutar
 
 ```bash
-python agente_faq.py
+python centralizada.py
+python jerarquica.py
+python descentralizada.py
 ```
 
-Escribe tu pregunta. Para salir, escribe `Bye` o presiona `Ctrl-C`.
+Escribe tu mensaje. Para salir, escribe `Bye` o presiona `Ctrl-C`.
+
+Ejemplo de cita:
 
 ```
-Tú: ¿Cuál es el límite de peso para el salto?
-Agente: El límite de peso máximo es de 100 kg. Si el peso está entre 90 kg y 100 kg, ...
+Tú: Quiero agendar una cita para mañana a las 09:00, servicio tándem, a nombre de Ana.
 ```
 
-El modelo de chat se configura en `MODELO` dentro de `agente_faq.py`
-(por defecto `meta/llama-3.1-70b-instruct` en NVIDIA Build, que soporta function calling).
+El agente consulta el clima de esa fecha. Si el día es prohibido, no agenda y explica los motivos. Si es
+marginal, pregunta si el usuario acepta. Si es ideal, guarda la cita en `data/citas.json`.
+
+## Criterio de clima
+
+| Variable (Open-Meteo, `daily`) | Ideal | Marginal | Prohibido |
+|---|---|---|---|
+| `wind_speed_10m_max` (km/h) | < 20 | 20 – 28 | > 28 |
+| `wind_gusts_10m_max` (km/h) | — | — | > 35 |
+| `precipitation_sum` (mm) | — | — | > 0.0 |
+| `cloud_cover_mean` (%) | < 30 | 30 – 75 | > 75 |
+
+- Sólo se consulta un día entre hoy y 16 días. Una fecha fuera de ese rango se rechaza con una corrección.
+- Coordenadas del lugar de aterrizaje: 14.013722, -90.771611.
 
 ## Pruebas
 
 ```bash
-pytest
+python -m pytest
 ```
 
-Las pruebas cubren el parser del corpus; no requieren base de datos ni API key.
+Las pruebas cubren el parser del corpus y el criterio de clima (umbrales, rango de fechas y agendamiento),
+con descargas simuladas. No requieren red ni API key.
 
-## Notas sobre el corpus
+## Notas
 
-Parte del corpus contiene fichas con respuestas genéricas (plantilla) y respuestas
-repetidas en preguntas que no corresponden. El agente solo puede responder con lo que
-aparece en el documento, así que en esos casos indicará que no tiene el detalle y
-sugerirá contactar a soporte@parachutesa.gt.
-
-## Seguridad
-
-`.env` está en `.gitignore`. Usa `.env.example` como plantilla.
+- Las tres arquitecturas usan los mismos especialistas y herramientas. Para un requerimiento nuevo se agrega
+  una función a `herramientas/integraciones.py`, su envoltura en `herramientas/tools.py` y se asigna a un especialista.
+- El corpus contiene fichas con respuestas genéricas y respuestas repetidas en preguntas no relacionadas.
+  El agente sólo responde con lo que aparece en el documento y, cuando no tiene el dato, lo dice.
