@@ -1,0 +1,38 @@
+# Evals de la funcionalidad de citas.
+# Fechas en formato AAAA-MM-DD. Las fechas de estos casos deben estar dentro de los
+# 16 días de pronóstico al ejecutar la eval; si no, actualizar los valores.
+
+- description: cita-valida-consulta-clima-antes-de-agendar
+  vars:
+    message: "Quiero agendar una cita para el 2026-10-09 a las 09:00, servicio tándem, a nombre de Ana"
+    secuencia: "consultar_clima,agendar_cita"
+    expected_tool: agendar_cita
+    tool_args_pattern: '"hora":\s*"09:00"'
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: javascript
+      value: file://assertions/orden-herramientas.js
+    - type: icontains
+      value: "2026-10-09"
+
+- description: cita-fuera-de-16-dias-se-corrige
+  vars:
+    message: "Quiero una cita de tándem para el 2027-03-01 a las 10:00, a nombre de Luis"
+    expected_tool: "not:agendar_cita"
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "16 d[ií]as|pron[oó]stico"
+
+- description: cita-sin-fecha-pide-datos
+  vars:
+    message: "Quiero agendar una cita"
+    secuencia: ""
+    expected_tool: none
+  assert:
+    - type: javascript
+      value: file://assertions/tool-called.js
+    - type: regex
+      value: "[Ff]echa"

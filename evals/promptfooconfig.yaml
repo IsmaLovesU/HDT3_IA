@@ -1,0 +1,44 @@
+# Evals del agente de citas y FAQ, para las tres arquitecturas de HDT5.
+# Ejecutar (desde la raíz del repo, con la venv activa y NVIDIA_API_KEY en .env):
+#   PROMPTFOO_PYTHON=.venv/Scripts/python.exe npx promptfoo@0.118.17 eval -c evals/promptfooconfig.yaml
+# Sin llamadas al modelo (sólo validar el harness): EVALS_MODO=simulado en lugar de la API key.
+
+description: "Evals de citas y FAQ - arquitecturas centralizada, jerárquica y descentralizada"
+
+providers:
+  - id: file://proveedor.py
+    label: centralizada
+    config:
+      arquitectura: centralizada
+  - id: file://proveedor.py
+    label: jerarquica
+    config:
+      arquitectura: jerarquica
+  - id: file://proveedor.py
+    label: descentralizada
+    config:
+      arquitectura: descentralizada
+
+prompts:
+  - "{{message}}"
+
+defaultTest:
+  options:
+    # Juez LLM para factuality: el mismo proveedor NIM que usa el agente (NVIDIA_API_KEY).
+    provider:
+      id: openai:chat:meta/llama-3.1-70b-instruct
+      config:
+        apiBaseUrl: https://integrate.api.nvidia.com/v1
+        apiKeyEnvar: NVIDIA_API_KEY
+  assert:
+    # Tres agentes con llamadas al modelo y a Open-Meteo: umbral de 30 s por caso.
+    - type: latency
+      threshold: 30000
+
+# Una llamada a la vez: el registro de herramientas es global por proceso.
+evaluateOptions:
+  maxConcurrency: 1
+
+tests:
+  - file://casos_citas.yaml
+  - file://casos_faq.yaml
