@@ -138,6 +138,8 @@ evalúan al agente.
 
 ## MCP y A2A (HDT7)
 
+video demostrativo: https://youtu.be/pwn9tPdI9xs
+
 Las herramientas (`consultar_faq`, `consultar_clima`, `agendar_cita`) ya no son `function_tool` locales:
 viven en un servidor MCP y las tres arquitecturas se conectan a él como clientes, por transporte
 Streamable HTTP. Además, el sistema multiagente se expone hacia afuera como un solo agente A2A.
