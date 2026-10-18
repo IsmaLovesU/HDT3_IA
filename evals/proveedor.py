@@ -10,6 +10,7 @@ Variables de entorno:
 
 import asyncio
 import importlib
+import json
 import os
 import re
 import sys
@@ -33,25 +34,39 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
 
 
 def _respuesta_real(mensaje: str, arquitectura: str) -> dict:
-    from agents import Runner
-
     from agentes_comunes import configurar_modelo
-    from herramientas.tools import REGISTRO_LLAMADAS
 
     try:
         configurar_modelo()  # Termina con SystemExit si falta NVIDIA_API_KEY.
     except SystemExit:
         return {"error": "Falta NVIDIA_API_KEY en el entorno o en .env."}
-    modulo = importlib.import_module(arquitectura)
-    agente = modulo.construir_agente_principal()
+    try:
+        return asyncio.run(_ejecutar_real(mensaje, arquitectura))
+    except Exception as error:
+        return {"error": f"No se pudo conectar al servidor MCP ({error}). ¿Está corriendo 'python mcp_server.py'?"}
 
-    REGISTRO_LLAMADAS.clear()
-    resultado = asyncio.run(Runner.run(agente, mensaje))
+
+async def _ejecutar_real(mensaje: str, arquitectura: str) -> dict:
+    from agents import Runner
+
+    from agentes_comunes import RUN_CONFIG, crear_mcp_server
+
+    modulo = importlib.import_module(arquitectura)
+
+    async with crear_mcp_server() as mcp_server:
+        # El registro de llamadas vive en el servidor MCP (proceso separado); se limpia antes
+        # de cada caso y se lee después, para que las evals sigan viendo qué herramientas se usaron.
+        await mcp_server.call_tool("limpiar_registro_llamadas", {})
+        agente = modulo.construir_agente_principal(mcp_server)
+        resultado = await Runner.run(agente, mensaje, run_config=RUN_CONFIG)
+        registro = await mcp_server.call_tool("obtener_registro_llamadas", {})
+        tool_calls = json.loads(registro.content[0].text)
+
     return {
         "output": resultado.final_output,
         "metadata": {
             "arquitectura": arquitectura,
-            "toolCalls": list(REGISTRO_LLAMADAS),
+            "toolCalls": tool_calls,
         },
     }
 

@@ -26,7 +26,7 @@ defaultTest:
   options:
     # Juez LLM para factuality: el mismo proveedor NIM que usa el agente (NVIDIA_API_KEY).
     provider:
-      id: openai:chat:meta/llama-3.1-70b-instruct
+      id: openai:chat:openai/gpt-oss-20b
       config:
         apiBaseUrl: https://integrate.api.nvidia.com/v1
         apiKeyEnvar: NVIDIA_API_KEY
