@@ -15,17 +15,16 @@ from agents import handoff
 from agentes_comunes import agente_citas, agente_clima, agente_faq, crear_agente, ejecutar_terminal
 
 
-def construir_agente_principal():
+def construir_agente_principal(mcp_server):
     entrada = crear_agente(
         "agente_entrada",
         "Eres el primer contacto de Parachute S.A. Identifica la intención del usuario y transfiere la "
         "conversación al agente adecuado mediante handoff: preguntas informativas al Agente FAQ, "
         "clima al Agente de clima, citas al Agente de citas. Responde en español.",
-        [],
     )
-    faq = agente_faq()
-    clima = agente_clima()
-    citas = agente_citas()
+    faq = agente_faq(mcp_server)
+    clima = agente_clima(mcp_server)
+    citas = agente_citas(mcp_server)
 
     # Cada especialista puede devolver la conversación a la entrada o transferir a otro.
     for agente in (faq, clima, citas):
@@ -38,4 +37,4 @@ def construir_agente_principal():
 
 
 if __name__ == "__main__":
-    ejecutar_terminal(construir_agente_principal(), "descentralizada")
+    ejecutar_terminal(construir_agente_principal, "descentralizada")

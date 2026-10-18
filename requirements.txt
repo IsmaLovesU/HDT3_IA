@@ -1,6 +1,11 @@
 openai
+openai-agents
 python-dotenv
 psycopg[binary]
 pgvector
 sentence-transformers
 pytest
+mcp
+a2a-sdk==0.3.26
+httpx
+uvicorn
