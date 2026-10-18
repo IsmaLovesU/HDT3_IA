@@ -33,7 +33,8 @@ def _gerente_operaciones(mcp_server):
         "gerente_operaciones",
         "Atiendes solicitudes de clima y citas. Para agendar, primero consulta el pronóstico con el "
         "Agente de clima y después pide al Agente de citas que agende. Nunca agendes un día prohibido. "
-        "Responde en español.",
+        "Devuelve siempre la respuesta final del especialista tal cual, como una respuesta directa al "
+        "usuario; no la reformules como si tú fueras el usuario ni pidas más pasos. Responde en español.",
         tools=[
             agente_clima(mcp_server).as_tool(
                 tool_name="consultar_pronostico",

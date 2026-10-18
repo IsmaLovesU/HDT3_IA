@@ -4,6 +4,7 @@ import os
 
 import psycopg
 from dotenv import load_dotenv
+from pgvector import Vector
 from pgvector.psycopg import register_vector
 
 from embeddings import vectorizar
@@ -22,7 +23,9 @@ def conectar() -> psycopg.Connection:
 
 def buscar_faq(consulta: str, k: int = 5) -> list[dict]:
     """Devuelve las k FAQs más parecidas a la consulta, ordenadas por similitud."""
-    vector = vectorizar([consulta])[0]
+    # pgvector sólo adapta su propia clase Vector (o numpy.ndarray) al tipo `vector` de
+    # Postgres; una lista de Python se manda como double precision[] y <=> falla.
+    vector = Vector(vectorizar([consulta])[0])
     with conectar() as conexion:
         filas = conexion.execute(
             """

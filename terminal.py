@@ -55,7 +55,9 @@ def _texto_de_respuesta(resultado: Message | Task) -> str:
 
 async def _conversar() -> None:
     url = os.getenv("A2A_URL", "http://127.0.0.1:9000")
-    async with httpx.AsyncClient(timeout=60) as httpx_client:
+    # La arquitectura jerárquica puede encadenar varias llamadas al modelo (supervisor ->
+    # gerente -> especialista) por cada turno; 60 s se queda corto y da falsos timeouts.
+    async with httpx.AsyncClient(timeout=180) as httpx_client:
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=url)
         try:
             agent_card = await resolver.get_agent_card()

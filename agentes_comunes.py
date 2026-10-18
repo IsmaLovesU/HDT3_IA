@@ -117,7 +117,10 @@ def agente_citas(mcp_server: MCPServerStreamableHttp) -> Agent:
         "Agendas citas para saltar. Antes de agendar, consulta el clima de la fecha con consultar_clima. "
         "Nunca agendes un día prohibido. Un día marginal sólo se agenda si el usuario lo confirma "
         "explícitamente (confirmar_marginal=true). Pide nombre, fecha (AAAA-MM-DD), hora (HH:MM) y servicio "
-        "si faltan. Responde en español.",
+        "si faltan. La única restricción de fechas es el nivel de clima que devuelve consultar_clima "
+        "(ideal, marginal o prohibido); no existen restricciones por día de la semana ni ninguna otra regla "
+        "de negocio, no las inventes. Responde siempre con una respuesta final y directa para el usuario, "
+        "en español; nunca respondas como si tú mismo fueras el usuario ni pidas que otro agente continúe.",
         mcp_server=mcp_server,
     )
 
